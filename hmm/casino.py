@@ -19,11 +19,11 @@ class Casino:
         [1 / 10, 1 / 10, 1 / 10, 1 / 10, 1 / 10, 5 / 10]
     ])
 
-    INIT = np.array([1.0, 0.0])
+    INIT = np.array([0.95, 0.05])
 
     def __init__(self):
 
-        self.z = self.Z_HONEST
+        self.z = int(np.random.choice([self.Z_HONEST, self.Z_DISHONEST], 1, p=self.INIT)[0])
 
     def transition(self):
 
@@ -33,7 +33,7 @@ class Casino:
     def observe(self):
 
         if self.z == self.Z_HONEST:
-            x =  np.random.choice([0, 1, 2, 3, 4, 5], 1, p=self.PX[0])
+            x = np.random.choice([0, 1, 2, 3, 4, 5], 1, p=self.PX[0])
         else:
             x = np.random.choice([0, 1, 2, 3, 4, 5], 1, p=self.PX[1])
 

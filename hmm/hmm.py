@@ -1,13 +1,30 @@
 import numpy as np
 
 
-class HMM:
+class HMMMultinoulli:
 
-    def __init__(self, A, PX, init):
+    def __init__(self, A=None, PX=None, init=None):
 
         self.A = A
         self.PX = PX
         self.init = init
+
+    def learn_fully_obs(self, xs, zs):
+
+        _, N1 = np.unique(zs[:, 0], return_counts=True)
+        num_hidden_states = len(np.unique(zs))
+
+        N = np.zeros((num_hidden_states, num_hidden_states), dtype=np.float32)
+
+        for i in range(num_hidden_states):
+            for j in range(num_hidden_states):
+                for t in range(zs.shape[1] - 1):
+                    N[i, j] += np.sum(np.bitwise_and(zs[:, t] == i, zs[:, t+1] == j))
+
+        self.init = N1 / np.sum(N1)
+        self.A = N / np.sum(N, axis=1)[:, np.newaxis]
+
+        print(self.init, self.A)
 
     def forward(self, seq):
 
