@@ -14,6 +14,13 @@ class Casino:
         [0.1, 0.9]
     ])
 
+    PX = np.array([
+        [1/6, 1/6, 1/6, 1/6, 1/6, 1/6],
+        [1 / 10, 1 / 10, 1 / 10, 1 / 10, 1 / 10, 5 / 10]
+    ])
+
+    INIT = np.array([1.0, 0.0])
+
     def __init__(self):
 
         self.z = self.Z_HONEST
@@ -26,6 +33,8 @@ class Casino:
     def observe(self):
 
         if self.z == self.Z_HONEST:
-            return np.random.choice([1, 2, 3, 4, 5, 6], 1, p=[1/6, 1/6, 1/6, 1/6, 1/6, 1/6])
+            x =  np.random.choice([0, 1, 2, 3, 4, 5], 1, p=self.PX[0])
         else:
-            return np.random.choice([1, 2, 3, 4, 5, 6], 1, p=[1/10, 1/10, 1/10, 1/10, 1/10, 5/10])
+            x = np.random.choice([0, 1, 2, 3, 4, 5], 1, p=self.PX[1])
+
+        return int(x[0])
