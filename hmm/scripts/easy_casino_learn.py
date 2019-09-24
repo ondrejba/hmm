@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ..casino import Casino
+from ..easy_casino import Casino
 from ..hmm import HMMMultinoulli
 
 

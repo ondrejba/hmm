@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import special
 
 
 class HMMMultinoulli:
@@ -37,82 +38,82 @@ class HMMMultinoulli:
 
         self.PX = Nx / np.sum(Nx, axis=1)[:, np.newaxis]
 
-    def learn_em(self, xs, num_hidden_states, num_steps=10):
+    def initialize_em(self, num_hidden_states, num_observations):
 
         self.num_hidden_states = num_hidden_states
-        self.num_observations = len(np.unique(xs))
+        self.num_observations = num_observations
 
-        batch_size = len(xs)
-
-        # init
         self.init = np.random.dirichlet([1.0] * self.num_hidden_states)
-        self.A = np.random.dirichlet([1.0] * self.num_hidden_states * self.num_hidden_states)\
+        self.A = np.random.dirichlet([1.0] * self.num_hidden_states * self.num_hidden_states) \
             .reshape((self.num_hidden_states, self.num_hidden_states))
         self.PX = np.random.dirichlet([1.0] * self.num_observations, size=self.num_hidden_states)
 
-        for step_idx in range(num_steps):
+    def learn_em(self, xs):
 
-            # E step
-            gammas_batch = []
-            etas_batch = []
+        batch_size = len(xs)
 
-            for batch_idx in range(batch_size):
-                _, _, _, gammas, etas = self.forward_backward(xs[batch_idx])
+        # E step
+        gammas_batch = []
+        etas_batch = []
 
-                gammas_batch.append(gammas)
-                etas_batch.append(etas)
+        for batch_idx in range(batch_size):
+            _, _, _, gammas, etas = self.forward_backward(xs[batch_idx])
 
-            gammas_batch = np.array(gammas_batch)
-            etas_batch = np.array(etas_batch)
+            gammas_batch.append(gammas)
+            etas_batch.append(etas)
 
-            N1 = np.zeros(self.num_hidden_states, dtype=np.float64)
+        gammas_batch = np.array(gammas_batch)
+        etas_batch = np.array(etas_batch)
 
-            for i in range(self.num_hidden_states):
-                N1[i] = np.sum(gammas_batch[:, 0, i])
+        N1 = np.zeros(self.num_hidden_states, dtype=np.float64)
 
-            Nj = np.zeros(self.num_hidden_states, dtype=np.float64)
+        for i in range(self.num_hidden_states):
+            N1[i] = np.sum(gammas_batch[:, 0, i])
 
-            for i in range(self.num_hidden_states):
-                Nj[i] = np.sum(gammas_batch[:, :, i])
+        Nj = np.zeros(self.num_hidden_states, dtype=np.float64)
 
-            Njk = np.sum(etas_batch, axis=(0, 1))
+        for i in range(self.num_hidden_states):
+            Nj[i] = np.sum(gammas_batch[:, :, i])
 
-            # M step
-            self.A = Njk / np.sum(Njk)
-            self.init = N1 / np.sum(N1)
+        Njk = np.sum(etas_batch, axis=(0, 1))
 
-            Mjl = np.zeros((self.num_hidden_states, self.num_observations), dtype=np.float64)
+        # M step
+        self.A = Njk / np.sum(Njk)
+        self.init = N1 / np.sum(N1)
 
-            for i in range(self.num_observations):
-                mask = (xs == i).astype(np.float64)
-                tmp = np.sum(gammas_batch * mask[:, :, np.newaxis], axis=(0, 1))
-                Mjl[:, i] = tmp
+        Mjl = np.zeros((self.num_hidden_states, self.num_observations), dtype=np.float64)
 
-            self.PX = Mjl / Nj[:, np.newaxis]
+        for i in range(self.num_observations):
+            mask = (xs == i).astype(np.float64)
+            tmp = np.sum(gammas_batch * mask[:, :, np.newaxis], axis=(0, 1))
+            Mjl[:, i] = tmp
+
+        self.PX = Mjl / Nj[:, np.newaxis]
 
     def forward_backward(self, seq):
 
         alphas, log_evidence = self.forward(seq)
-        betas = self.backward(seq)
+        log_alphas = np.log(alphas)
+        log_betas = self.backward(seq)
+        betas = np.exp(log_betas)
 
         px = self.condition(seq)
 
-        gammas = alphas * betas
-        gammas = gammas / np.sum(gammas, axis=1)[:, np.newaxis]
+        log_gammas = log_alphas + log_betas
+        log_gammas = log_gammas - special.logsumexp(log_gammas, axis=1)[:, np.newaxis]
+        gammas = np.exp(log_gammas)
 
-        etas = []
+        log_etas = []
+        log_A = np.log(self.A)
+        log_px = np.log(px)
 
         for t in range(1, len(seq)):
+            log_eta = log_A + (log_px[:, t] + log_betas[t])[np.newaxis, :] + log_alphas[t - 1][:, np.newaxis]
+            log_etas.append(log_eta)
 
-            a1 = alphas[t - 1]
-            a2 = px[:, t]
-            a3 = betas[t]
-
-            eta = self.A * a1[:, np.newaxis] * a2[np.newaxis, :] * a3[np.newaxis, :]
-            etas.append(eta)
-
-        etas = np.array(etas)
-        etas = etas / np.sum(etas, axis=(1, 2))[:, np.newaxis, np.newaxis]
+        log_etas = np.array(log_etas)
+        log_etas = log_etas - special.logsumexp(log_etas, axis=(1, 2))[:, np.newaxis, np.newaxis]
+        etas = np.exp(log_etas)
 
         return alphas, log_evidence, betas, gammas, etas
 
@@ -144,15 +145,20 @@ class HMMMultinoulli:
 
         px = self.condition(seq)
 
-        betas = [[1.0] * px.shape[0]]
+        log_betas = [np.array([0.0] * px.shape[0])]
+        log_A = np.log(self.A)
+        log_px = np.log(px)
 
         for t in reversed(range(0, len(seq) - 1)):
-            beta_t = np.matmul(self.A, px[:, t] * betas[0])
-            betas.insert(0, beta_t)
 
-        betas = np.array(betas)
+            log_beta_t = special.logsumexp(
+                log_A[:, :] + (log_px[:, t] + log_betas[0])[np.newaxis, :], axis=1
+            )
+            log_betas.insert(0, log_beta_t)
 
-        return betas
+        log_betas = np.array(log_betas)
+
+        return log_betas
 
     def condition(self, seq):
         return self.PX[:, seq]
