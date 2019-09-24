@@ -78,7 +78,7 @@ class HMMMultinoulli:
         Njk = np.sum(etas_batch, axis=(0, 1))
 
         # M step
-        self.A = Njk / np.sum(Njk)
+        self.A = Njk / np.sum(Njk, axis=1)[:, np.newaxis]
         self.init = N1 / np.sum(N1)
 
         Mjl = np.zeros((self.num_hidden_states, self.num_observations), dtype=np.float64)
@@ -89,6 +89,15 @@ class HMMMultinoulli:
             Mjl[:, i] = tmp
 
         self.PX = Mjl / Nj[:, np.newaxis]
+
+        # log likelihood
+        px = self.condition(xs)
+        px = np.transpose(px, axes=[1, 2, 0])
+
+        log_likelihood = np.sum(N1 * np.log(self.init)) + np.sum(Njk * np.log(self.A)[np.newaxis, np.newaxis, :, :]) + \
+            np.sum(gammas_batch * np.log(px))
+
+        return log_likelihood
 
     def forward_backward(self, seq):
 
@@ -161,7 +170,7 @@ class HMMMultinoulli:
         return log_betas
 
     def condition(self, seq):
-        return self.PX[:, seq]
+        return self.PX[..., seq]
 
     def normalize(self, alpha):
         s = np.sum(alpha)

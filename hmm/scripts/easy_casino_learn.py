@@ -35,37 +35,7 @@ num_hidden_states = len(np.unique(zs_batch))
 # learn
 hmm.initialize_em(2, 6)
 
-for i in range(100):
-
-    # calculate probabilities
-    alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs_batch[0])
-
-    print(etas.shape)
-    plt.plot(etas[0, 1])
-    plt.plot(etas[1, 0])
-    plt.show()
-
-    # plot alphas and gammas
-    plot_zs = np.array(zs_batch[0])
-    plot_alphas = alphas[:, 1]
-    plot_gammas = gammas[:, 1]
-    plot_xs = np.linspace(1, len(plot_zs), num=len(plot_zs))
-
-    plt.figure(figsize=(12, 9))
-
-    plt.subplot(2, 1, 1)
-    plt.title("filtering")
-    plt.plot(plot_xs, plot_zs, label="z")
-    plt.plot(plot_xs, plot_alphas, label="P(z) = 1")
-    plt.legend()
-
-    plt.subplot(2, 1, 2)
-    plt.title("smoothing")
-    plt.plot(plot_xs, plot_zs, label="z")
-    plt.plot(plot_xs, plot_gammas, label="P(z) = 1")
-    plt.legend()
-    plt.show()
-
+for i in range(200):
     # learn
     print("step", i)
     print(hmm.A)
@@ -73,4 +43,30 @@ for i in range(100):
     print(hmm.PX)
     print()
 
-    hmm.learn_em(xs_batch)
+    ll = hmm.learn_em(xs_batch)
+    print("log likelihood:", ll)
+    print()
+
+# calculate probabilities
+alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs_batch[0])
+
+# plot alphas and gammas
+plot_zs = np.array(zs_batch[0])
+plot_alphas = alphas[:, 1]
+plot_gammas = gammas[:, 1]
+plot_xs = np.linspace(1, len(plot_zs), num=len(plot_zs))
+
+plt.figure(figsize=(12, 9))
+
+plt.subplot(2, 1, 1)
+plt.title("filtering")
+plt.plot(plot_xs, plot_zs, label="z")
+plt.plot(plot_xs, plot_alphas, label="P(z) = 1")
+plt.legend()
+
+plt.subplot(2, 1, 2)
+plt.title("smoothing")
+plt.plot(plot_xs, plot_zs, label="z")
+plt.plot(plot_xs, plot_gammas, label="P(z) = 1")
+plt.legend()
+plt.show()
