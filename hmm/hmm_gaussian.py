@@ -43,15 +43,16 @@ class HMMGaussian:
 
         self.cov = mean_xx_bar - self.mu[:, :, np.newaxis] * self.mu[:, np.newaxis, :]
 
-    def initialize_em(self, num_hidden_states, num_observations):
+    def initialize_em(self, num_hidden_states, dimensionality):
 
         self.num_hidden_states = num_hidden_states
-        self.num_observations = num_observations
+        self.dimensionality = dimensionality
 
         self.init = np.random.dirichlet([1.0] * self.num_hidden_states)
         self.A = np.random.dirichlet([1.0] * self.num_hidden_states * self.num_hidden_states) \
             .reshape((self.num_hidden_states, self.num_hidden_states))
-        self.PX = np.random.dirichlet([1.0] * self.num_observations, size=self.num_hidden_states)
+        self.mu = np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality))
+        # TODO: cov matrix
 
     def learn_em(self, xs):
 
