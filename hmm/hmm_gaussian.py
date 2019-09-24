@@ -86,21 +86,18 @@ class HMMGaussian:
         self.A = Njk / np.sum(Njk, axis=1)[:, np.newaxis]
         self.init = N1 / np.sum(N1)
 
-        Mjl = np.zeros((self.num_hidden_states, self.num_observations), dtype=np.float64)
-
-        for i in range(self.num_observations):
-            mask = (xs == i).astype(np.float64)
-            tmp = np.sum(gammas_batch * mask[:, :, np.newaxis], axis=(0, 1))
-            Mjl[:, i] = tmp
-
-        self.PX = Mjl / Nj[:, np.newaxis]
+        print("gammas", gammas_batch.shape)
+        print("xs", xs.shape)
 
         # log likelihood
+        """
         px = self.condition(xs)
         px = np.transpose(px, axes=[1, 2, 0])
 
         log_likelihood = np.sum(N1 * np.log(self.init)) + np.sum(Njk * np.log(self.A)[np.newaxis, np.newaxis, :, :]) + \
             np.sum(gammas_batch * np.log(px))
+        """
+        log_likelihood = 0.0
 
         return log_likelihood
 
