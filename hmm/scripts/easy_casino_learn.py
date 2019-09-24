@@ -41,6 +41,9 @@ for i in range(100):
     alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs_batch[0])
 
     print(etas.shape)
+    plt.plot(etas[0, 1])
+    plt.plot(etas[1, 0])
+    plt.show()
 
     # plot alphas and gammas
     plot_zs = np.array(zs_batch[0])
