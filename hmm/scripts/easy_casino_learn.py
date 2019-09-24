@@ -40,6 +40,8 @@ for i in range(100):
     # calculate probabilities
     alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs_batch[0])
 
+    print(etas.shape)
+
     # plot alphas and gammas
     plot_zs = np.array(zs_batch[0])
     plot_alphas = alphas[:, 1]
