@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ..casino import Casino
-from ..hmm_multinoulli import HMMMultinoulli
+from ..simple_gaussian import SimpleGaussian
+from ..hmm_gaussian import HMMGaussian
 
 
-hmm = HMMMultinoulli()
+hmm = HMMGaussian()
 
 # generate sequence
 seq_length = 300
@@ -14,15 +14,15 @@ xs_batch = []
 zs_batch = []
 
 for j in range(batch_size):
-    casino = Casino()
+    sg = SimpleGaussian()
 
-    xs = [casino.observe()]
-    zs = [casino.z]
+    xs = [sg.observe()]
+    zs = [sg.z]
 
     for i in range(seq_length - 1):
-        casino.transition()
-        xs.append(casino.observe())
-        zs.append(casino.z)
+        sg.transition()
+        xs.append(sg.observe())
+        zs.append(sg.z)
 
     xs_batch.append(xs)
     zs_batch.append(zs)
@@ -34,7 +34,10 @@ zs_batch = np.array(zs_batch)
 hmm.learn_fully_obs(xs_batch, zs_batch)
 
 # print results
-for key1, value1 in zip(["init", "A", "PX"], [[Casino.INIT, hmm.init], [Casino.A, hmm.A], [Casino.PX, hmm.PX]]):
+for key1, value1 in zip(["init", "A", "mu", "cov"], [
+    [SimpleGaussian.INIT, hmm.init], [SimpleGaussian.A, hmm.A],
+    [SimpleGaussian.MU, hmm.mu], [SimpleGaussian.COV, hmm.cov]
+]):
     for key2, value2 in zip(["real", "learned"], value1):
         print("{} {}:".format(key2, key1))
         print(value2)

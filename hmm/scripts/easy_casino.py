@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ..easy_casino import Casino
-from ..hmm import HMMMultinoulli
+from ..hmm_multinoulli import HMMMultinoulli
 
 
 casino = Casino()

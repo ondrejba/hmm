@@ -1,22 +1,31 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from ..casino import Casino
-from ..hmm_multinoulli import HMMMultinoulli
+from ..simple_gaussian import SimpleGaussian
+from ..hmm_gaussian import HMMGaussian
 
 
-casino = Casino()
-hmm = HMMMultinoulli()
+sg = SimpleGaussian()
+hmm = HMMGaussian(sg.A, sg.INIT, sg.MU, sg.COV)
 
 # generate sequence
 seq_length = 300
 
-xs = [casino.observe()]
-zs = [casino.z]
+xs = [sg.observe()]
+zs = [sg.z]
 
 for i in range(seq_length - 1):
-    casino.transition()
-    xs.append(casino.observe())
-    zs.append(casino.z)
+    sg.transition()
+    xs.append(sg.observe())
+    zs.append(sg.z)
+
+xs = np.array(xs)
+zs = np.array(zs)
+
+plt.title("observations")
+plt.scatter(xs[:, 0][zs == 0], xs[:, 1][zs == 0], label="z=0")
+plt.scatter(xs[:, 0][zs == 1], xs[:, 1][zs == 1], label="z=1")
+plt.legend()
+plt.show()
 
 # calculate probabilities
 alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs)

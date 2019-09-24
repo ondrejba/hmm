@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ..casino import Casino
-from ..hmm import HMMMultinoulli
+from ..hmm_multinoulli import HMMMultinoulli
 
 
-hmm = HMMMultinoulli(Casino.A, Casino.PX, Casino.INIT)
+hmm = HMMMultinoulli()
 
 # generate sequence
 seq_length = 300

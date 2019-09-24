@@ -1,14 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ..easy_casino import Casino
-from ..hmm import HMMMultinoulli
+from ..hmm_multinoulli import HMMMultinoulli
 
 
 hmm = HMMMultinoulli(Casino.A, Casino.PX, Casino.INIT)
 
 # generate sequence
 seq_length = 300
-batch_size = 100
+batch_size = 500
 
 xs_batch = []
 zs_batch = []

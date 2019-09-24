@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from ..casino import Casino
-from ..hmm import HMMMultinoulli
+from ..hmm_multinoulli import HMMMultinoulli
 
 
 class TestHMMMultinoulli(unittest.TestCase):
