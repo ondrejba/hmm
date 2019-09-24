@@ -19,10 +19,7 @@ for i in range(seq_length - 1):
     zs.append(casino.z)
 
 # calculate probabilities
-alphas, log_evidence = hmm.forward(xs)
-betas = hmm.backward(xs)
-gammas = alphas * betas
-gammas = gammas / np.sum(gammas, axis=1)[:, np.newaxis]
+alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs)
 
 # plot alphas and gammas
 plot_zs = np.array(zs)

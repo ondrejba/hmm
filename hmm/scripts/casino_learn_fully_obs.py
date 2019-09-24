@@ -46,10 +46,7 @@ for key1, value1 in zip(["init", "A", "PX"], [[Casino.INIT, hmm.init], [Casino.A
 xs = xs_batch[0]
 zs = zs_batch[0]
 
-alphas, log_evidence = hmm.forward(xs)
-betas = hmm.backward(xs)
-gammas = alphas * betas
-gammas = gammas / np.sum(gammas, axis=1)[:, np.newaxis]
+alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs)
 
 # plot alphas and gammas
 plot_zs = np.array(zs)
