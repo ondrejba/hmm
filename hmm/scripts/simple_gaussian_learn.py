@@ -33,7 +33,7 @@ zs_batch = np.array(zs_batch)
 num_hidden_states = len(np.unique(zs_batch))
 
 # learn
-hmm.initialize_em(2, 6)
+hmm.initialize_em(2, 2)
 
 for i in range(50):
 
@@ -41,7 +41,8 @@ for i in range(50):
     print("step", i)
     print(hmm.A)
     print(hmm.init)
-    print(hmm.PX)
+    print(hmm.mu)
+    print(hmm.cov)
     print()
 
     ll = hmm.learn_em(xs_batch)

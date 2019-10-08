@@ -52,7 +52,8 @@ class HMMGaussian:
         self.A = np.random.dirichlet([1.0] * self.num_hidden_states * self.num_hidden_states) \
             .reshape((self.num_hidden_states, self.num_hidden_states))
         self.mu = np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality))
-        # TODO: cov matrix
+        self.cov = np.tile(np.diag([0.1] * self.dimensionality)[np.newaxis, :, :],
+                           reps=(self.num_hidden_states, 1, 1))
 
     def learn_em(self, xs):
 
@@ -87,18 +88,20 @@ class HMMGaussian:
         self.A = Njk / np.sum(Njk, axis=1)[:, np.newaxis]
         self.init = N1 / np.sum(N1)
 
-        print("gammas", gammas_batch.shape)
-        print("xs", xs.shape)
+        mean_xx_bar = np.zeros((self.num_hidden_states, self.dimensionality, self.dimensionality), dtype=np.float64)
+
+        for i in range(self.num_hidden_states):
+            self.mu[i, :] = np.sum(xs * gammas_batch[:, :, i:i+1] / Nj[i], axis=(0, 1))
+            mean_xx_bar[i, :, :] = np.sum(gammas_batch[:, :, i][:, :, np.newaxis, np.newaxis] * xs[:, :, :, np.newaxis] * xs[:, :, np.newaxis, :] / Nj[i], axis=(0, 1))
+
+        self.cov = mean_xx_bar - self.mu[:, :, np.newaxis] * self.mu[:, np.newaxis, :]
 
         # log likelihood
-        """
         px = self.condition(xs)
         px = np.transpose(px, axes=[1, 2, 0])
 
         log_likelihood = np.sum(N1 * np.log(self.init)) + np.sum(Njk * np.log(self.A)[np.newaxis, np.newaxis, :, :]) + \
             np.sum(gammas_batch * np.log(px))
-        """
-        log_likelihood = 0.0
 
         return log_likelihood
 
