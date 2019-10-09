@@ -1,7 +1,8 @@
 import numpy as np
+from .env import Env
 
 
-class SimpleGaussian:
+class SimpleGaussian(Env):
 
     A = np.array([
         [0.85, 0.15],
@@ -14,6 +15,8 @@ class SimpleGaussian:
     COV = np.array([[[1.0, 0.0], [0.0, 1.0]], [[1.0, 0.0], [0.0, 1.0]]])
 
     def __init__(self):
+
+        super(SimpleGaussian, self).__init__()
 
         self.z = int(np.random.choice(self.ZS, 1, p=self.INIT)[0])
 

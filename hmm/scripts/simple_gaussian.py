@@ -10,16 +10,7 @@ hmm = HMMGaussian(sg.A, sg.INIT, sg.MU, sg.COV)
 # generate sequence
 seq_length = 300
 
-xs = [sg.observe()]
-zs = [sg.z]
-
-for i in range(seq_length - 1):
-    sg.transition()
-    xs.append(sg.observe())
-    zs.append(sg.z)
-
-xs = np.array(xs)
-zs = np.array(zs)
+xs, zs = sg.generate_sequence(seq_length)
 
 plt.title("observations")
 plt.scatter(xs[:, 0][zs == 0], xs[:, 1][zs == 0], label="z=0")

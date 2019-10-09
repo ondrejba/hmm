@@ -16,13 +16,7 @@ zs_batch = []
 for j in range(batch_size):
     sg = SimpleGaussian()
 
-    xs = [sg.observe()]
-    zs = [sg.z]
-
-    for i in range(seq_length - 1):
-        sg.transition()
-        xs.append(sg.observe())
-        zs.append(sg.z)
+    xs, zs = sg.generate_sequence(seq_length)
 
     xs_batch.append(xs)
     zs_batch.append(zs)

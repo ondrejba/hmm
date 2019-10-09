@@ -7,7 +7,8 @@ from ..hmm_gaussian import HMMGaussian
 hmm = HMMGaussian()
 
 # generate sequence
-seq_length = 300
+train_seq_length = 100
+test_seq_length = 300
 batch_size = 100
 
 xs_batch = []
@@ -16,19 +17,16 @@ zs_batch = []
 for j in range(batch_size):
     sg = SimpleGaussian()
 
-    xs = [sg.observe()]
-    zs = [sg.z]
-
-    for i in range(seq_length - 1):
-        sg.transition()
-        xs.append(sg.observe())
-        zs.append(sg.z)
+    xs, zs = sg.generate_sequence(train_seq_length)
 
     xs_batch.append(xs)
     zs_batch.append(zs)
 
 xs_batch = np.array(xs_batch)
 zs_batch = np.array(zs_batch)
+
+sg = SimpleGaussian()
+test_xs, test_zs = sg.generate_sequence(test_seq_length)
 
 num_hidden_states = len(np.unique(zs_batch))
 
@@ -50,10 +48,10 @@ for i in range(50):
     print()
 
 # calculate probabilities
-alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs_batch[0])
+alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(test_xs)
 
 # plot alphas and gammas
-plot_zs = np.array(zs_batch[0])
+plot_zs = np.array(test_zs)
 plot_alphas = alphas[:, 1]
 plot_gammas = gammas[:, 1]
 plot_xs = np.linspace(1, len(plot_zs), num=len(plot_zs))
