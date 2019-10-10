@@ -43,7 +43,8 @@ for key1, value1 in zip(["init", "A", "mu", "cov"], [
 xs = xs_batch[0]
 zs = zs_batch[0]
 
-alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs)
+log_alphas, log_evidence, log_betas, log_gammas, log_etas = hmm.forward_backward(xs)
+alphas, gammas = np.exp(log_alphas), np.exp(log_gammas)
 
 # plot alphas and gammas
 plot_zs = np.array(zs)

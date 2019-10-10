@@ -54,73 +54,80 @@ class HMMGaussian:
         self.mu = np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality))
         self.cov = np.tile(np.diag([0.1] * self.dimensionality)[np.newaxis, :, :],
                            reps=(self.num_hidden_states, 1, 1))
+        self.enabled = np.array([True] * self.num_hidden_states)
 
     def learn_em(self, xs):
 
         batch_size = len(xs)
 
         # E step
-        gammas_batch = []
-        etas_batch = []
+        log_gammas_batch = []
+        log_etas_batch = []
 
         for batch_idx in range(batch_size):
-            _, _, _, gammas, etas = self.forward_backward(xs[batch_idx])
+            _, _, _, log_gammas, log_etas = self.forward_backward(xs[batch_idx])
 
-            gammas_batch.append(gammas)
-            etas_batch.append(etas)
+            log_gammas_batch.append(log_gammas)
+            log_etas_batch.append(log_etas)
 
-        gammas_batch = np.array(gammas_batch)
-        etas_batch = np.array(etas_batch)
+        log_gammas_batch = np.array(log_gammas_batch)
+        log_etas_batch = np.array(log_etas_batch)
 
-        N1 = np.zeros(self.num_hidden_states, dtype=np.float64)
-
-        for i in range(self.num_hidden_states):
-            N1[i] = np.sum(gammas_batch[:, 0, i])
-
-        Nj = np.zeros(self.num_hidden_states, dtype=np.float64)
+        log_N1 = np.zeros(self.num_hidden_states, dtype=np.float64)
 
         for i in range(self.num_hidden_states):
-            Nj[i] = np.sum(gammas_batch[:, :, i])
+            log_N1[i] = special.logsumexp(log_gammas_batch[:, 0, i])
 
-        Njk = np.sum(etas_batch, axis=(0, 1))
+        log_Nj = np.zeros(self.num_hidden_states, dtype=np.float64)
+
+        for i in range(self.num_hidden_states):
+            log_Nj[i] = special.logsumexp(log_gammas_batch[:, :, i])
+
+        log_Njk = special.logsumexp(log_etas_batch, axis=(0, 1))
 
         # M step
-        self.A = Njk / np.sum(Njk, axis=1)[:, np.newaxis]
-        self.init = N1 / np.sum(N1)
+        log_A = log_Njk - special.logsumexp(log_Njk, axis=1)[:, np.newaxis]
+        log_init = log_N1 - special.logsumexp(log_N1)
+
+        self.A = np.exp(log_A)
+        self.init = np.exp(log_init)
 
         mean_xx_bar = np.zeros((self.num_hidden_states, self.dimensionality, self.dimensionality), dtype=np.float64)
 
         for i in range(self.num_hidden_states):
-            self.mu[i, :] = np.sum(xs * gammas_batch[:, :, i:i+1] / Nj[i], axis=(0, 1))
-            mean_xx_bar[i, :, :] = np.sum(gammas_batch[:, :, i][:, :, np.newaxis, np.newaxis] * xs[:, :, :, np.newaxis] * xs[:, :, np.newaxis, :] / Nj[i], axis=(0, 1))
+            self.mu[i, :] = np.sum(xs * np.exp(log_gammas_batch[:, :, i:i+1] - log_Nj[i]), axis=(0, 1))
+            mean_xx_bar[i, :, :] = np.sum(np.exp(log_gammas_batch[:, :, i][:, :, np.newaxis, np.newaxis] - log_Nj[i]) *
+                                          xs[:, :, :, np.newaxis] * xs[:, :, np.newaxis, :], axis=(0, 1))
 
         self.cov = mean_xx_bar - self.mu[:, :, np.newaxis] * self.mu[:, np.newaxis, :]
 
-        # log likelihood
-        px = self.condition(xs)
-        px = np.transpose(px, axes=[1, 2, 0])
+        self.enabled[:] = True
+        for i in range(self.num_hidden_states):
+            if not self.is_valid(self.cov[i]):
+                self.enabled[i] = False
 
-        log_likelihood = np.sum(N1 * np.log(self.init)) + np.sum(Njk * np.log(self.A)[np.newaxis, np.newaxis, :, :]) + \
-            np.sum(gammas_batch * np.log(px))
+        # log likelihood
+        log_px = self.condition(xs)
+        log_px = np.transpose(log_px, axes=[1, 2, 0])
+
+        log_likelihood = np.sum(np.exp(log_N1) * np.log(self.init)) + \
+                         np.sum(np.exp(log_Njk) * np.log(self.A)[np.newaxis, np.newaxis, :, :]) + \
+                         np.sum(np.exp(log_gammas_batch) * log_px)
 
         return log_likelihood
 
     def forward_backward(self, seq):
 
-        alphas, log_evidence = self.forward(seq)
-        log_alphas = np.log(alphas)
+        log_alphas, log_evidence = self.forward(seq)
         log_betas = self.backward(seq)
-        betas = np.exp(log_betas)
 
-        px = self.condition(seq)
+        log_px = self.condition(seq)
 
         log_gammas = log_alphas + log_betas
         log_gammas = log_gammas - special.logsumexp(log_gammas, axis=1)[:, np.newaxis]
-        gammas = np.exp(log_gammas)
 
         log_etas = []
         log_A = np.log(self.A)
-        log_px = np.log(px)
 
         for t in range(1, len(seq)):
             log_eta = log_A + (log_px[:, t] + log_betas[t])[np.newaxis, :] + log_alphas[t - 1][:, np.newaxis]
@@ -128,41 +135,42 @@ class HMMGaussian:
 
         log_etas = np.array(log_etas)
         log_etas = log_etas - special.logsumexp(log_etas, axis=(1, 2))[:, np.newaxis, np.newaxis]
-        etas = np.exp(log_etas)
 
-        return alphas, log_evidence, betas, gammas, etas
+        return log_alphas, log_evidence, log_betas, log_gammas, log_etas
 
     def forward(self, seq):
 
-        px = self.condition(seq)
+        log_A = np.log(self.A)
+        log_init = np.log(self.init)
+        log_px = self.condition(seq)
 
-        alpha_1 = px[:, 0] * self.init
-        alpha_1, Z_1 = self.normalize(alpha_1)
+        log_alpha_1 = log_px[:, 0] + log_init
+        log_alpha_1, log_Z_1 = self.log_normalize(log_alpha_1)
 
-        alphas = [alpha_1]
-        Zs = [Z_1]
+        log_alphas = [log_alpha_1]
+        log_Zs = [log_Z_1]
 
         for t in range(1, len(seq)):
-            alpha_t = px[:, t] * np.matmul(np.transpose(self.A, axes=[1, 0]), alphas[-1])
-            alpha_t, Zt = self.normalize(alpha_t)
 
-            alphas.append(alpha_t)
-            Zs.append(Zt)
+            log_alpha_t = log_px[:, t] + special.logsumexp(log_A + log_alphas[-1][:, np.newaxis], axis=0)
+            log_alpha_t, log_Zt = self.log_normalize(log_alpha_t)
 
-        alphas = np.array(alphas)
-        Zs = np.array(Zs)
+            log_alphas.append(log_alpha_t)
+            log_Zs.append(log_Zt)
 
-        log_evidence = np.sum(np.log(Zs))
+        log_alphas = np.array(log_alphas)
+        log_Zs = np.array(log_Zs)
 
-        return alphas, log_evidence
+        log_evidence = np.sum(log_Zs)
+
+        return log_alphas, log_evidence
 
     def backward(self, seq):
 
-        px = self.condition(seq)
+        log_px = self.condition(seq)
 
-        log_betas = [np.array([0.0] * px.shape[0])]
+        log_betas = [np.array([0.0] * log_px.shape[0])]
         log_A = np.log(self.A)
-        log_px = np.log(px)
 
         for t in reversed(range(0, len(seq) - 1)):
 
@@ -177,15 +185,27 @@ class HMMGaussian:
 
     def condition(self, seq):
 
-        px = []
+        log_px = []
 
         for i in range(self.num_hidden_states):
-            tmp_px = multivariate_normal.pdf(seq, mean=self.mu[i], cov=self.cov[i])
-            px.append(tmp_px)
 
-        px = np.array(px)
-        return px
+            if not self.enabled[i]:
+                tmp_px = np.zeros(seq.shape[:-1], dtype=np.float32) - 10.0
+            else:
+                tmp_px = multivariate_normal.logpdf(seq, mean=self.mu[i], cov=self.cov[i])
+
+            log_px.append(tmp_px)
+
+        log_px = np.array(log_px)
+        return log_px
 
     def normalize(self, alpha):
         s = np.sum(alpha)
         return alpha / s, s
+
+    def log_normalize(self, alpha):
+        s = special.logsumexp(alpha)
+        return alpha - s, s
+
+    def is_valid(self, x):
+        return np.all(np.linalg.eigvals(x) >= 0) and np.linalg.matrix_rank(x) == x.shape[0]
