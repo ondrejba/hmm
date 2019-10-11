@@ -1,17 +1,21 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from ..simple_gaussian import SimpleGaussian
 from ..hmm_gaussian_tf import HMMGaussianTF
 
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+tf.get_logger().setLevel(logging.ERROR)
 
-seq_length = 10
+seq_length = 300
 batch_size = 100
+learning_rate = 0.01
+num_steps = 500
 
-hmm = HMMGaussianTF(2, 2, seq_length=seq_length, learning_rate=0.01 / batch_size)
+hmm = HMMGaussianTF(2, 2, seq_length=seq_length, learning_rate=learning_rate)
 
 # generate sequence
 xs_batch = []
@@ -43,7 +47,7 @@ with tf.Session() as session:
 
     session.run(tf.global_variables_initializer())
 
-    for i in range(10000):
+    for i in range(num_steps):
         _, log_likelihood = session.run([hmm.opt_step, hmm.log_likelihood], feed_dict={hmm.seq: xs_batch})
         print("step {:d}: {:.0f} ll".format(i, log_likelihood))
 
@@ -63,13 +67,13 @@ plt.figure(figsize=(12, 9))
 
 plt.subplot(2, 1, 1)
 plt.title("filtering")
-plt.plot(plot_xs, plot_zs, label="z")
+plt.plot(plot_xs, 1 - plot_zs, label="z")
 plt.plot(plot_xs, plot_alphas, label="P(z) = 1")
 plt.legend()
 
 plt.subplot(2, 1, 2)
 plt.title("smoothing")
-plt.plot(plot_xs, plot_zs, label="z")
+plt.plot(plot_xs, 1 - plot_zs, label="z")
 plt.plot(plot_xs, plot_gammas, label="P(z) = 1")
 plt.legend()
 plt.show()
