@@ -95,6 +95,30 @@ class HMMGaussianTF:
         log_init = tf.log(self.init)
         log_A = tf.log(self.A)
 
+        init_log_alpha = self.log_condition_seq[:, 0, :] + log_init[tf.newaxis, :]
+        init_log_alpha, init_log_Zs = self.log_normalize(init_log_alpha)
+
+        def fc(last, t):
+
+            log_alphas_t_minus_one, log_Zs_t_minus_one = last
+
+            log_alpha_t = self.log_condition_seq[:, t, :] + tf.reduce_logsumexp(
+                log_A[tf.newaxis, :, :] + log_alphas_t_minus_one[:, :, tf.newaxis], axis=1
+            )
+
+            log_alpha_t, log_Zt = self.log_normalize(log_alpha_t)
+
+            return log_alpha_t, log_Zt
+
+        log_alphas, log_Zs = tf.scan(elems=tf.constant(list(range(1, self.seq_length))), fn=fc,
+                                     initializer=(init_log_alpha, init_log_Zs))
+        log_alphas = tf.transpose(log_alphas, perm=[1, 0, 2])
+        log_Zs = tf.transpose(log_Zs, perm=[1, 0])
+
+        log_alphas = tf.concat([init_log_alpha[:, tf.newaxis, :], log_alphas], axis=1)
+        log_Zs = tf.concat([init_log_Zs[:, tf.newaxis], log_Zs], axis=1)
+
+        """
         log_alpha_1 = self.log_condition_seq[:, 0, :] + log_init[tf.newaxis, :]
         log_alpha_1, log_Z_1 = self.log_normalize(log_alpha_1)
 
@@ -114,6 +138,7 @@ class HMMGaussianTF:
 
         log_alphas = tf.stack(log_alphas, axis=1)
         log_Zs = tf.stack(log_Zs, axis=1)
+        """
 
         log_evidence = tf.reduce_sum(log_Zs, axis=1)
 
@@ -125,10 +150,10 @@ class HMMGaussianTF:
         log_A = tf.log(self.A)
         log_px = self.log_condition_seq
 
-        def fc(log_beta_t_minus_one, t):
+        def fc(log_beta_t_plus_one, t):
 
             log_beta_t = tf.reduce_logsumexp(
-                log_A[tf.newaxis, :, :] + (log_px[:, t, :] + log_beta_t_minus_one)[:, tf.newaxis, :], axis=2
+                log_A[tf.newaxis, :, :] + (log_px[:, t, :] + log_beta_t_plus_one)[:, tf.newaxis, :], axis=2
             )
 
             return log_beta_t
@@ -137,17 +162,6 @@ class HMMGaussianTF:
                             fn=fc, initializer=init_betas, reverse=True)
         log_betas = tf.transpose(log_betas, perm=[1, 0, 2])
         log_betas = tf.concat([log_betas, init_betas[:, tf.newaxis, :]], axis=1)
-
-        """
-        for t in reversed(range(0, self.seq_length - 1)):
-
-            log_beta_t = tf.reduce_logsumexp(
-                log_A[tf.newaxis, :, :] + (log_px[:, t, :] + log_betas[0])[:, tf.newaxis, :], axis=2
-            )
-            log_betas.insert(0, log_beta_t)
-
-        log_betas = tf.stack(log_betas, axis=1)
-        """
 
         return log_betas
 
