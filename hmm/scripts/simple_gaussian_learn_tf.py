@@ -8,7 +8,7 @@ from ..simple_gaussian import SimpleGaussian
 from ..hmm_gaussian_tf import HMMGaussianTF
 
 
-seq_length = 300
+seq_length = 10
 batch_size = 100
 
 hmm = HMMGaussianTF(2, 2, seq_length=seq_length, learning_rate=0.01 / batch_size)
@@ -43,14 +43,15 @@ with tf.Session() as session:
 
     session.run(tf.global_variables_initializer())
 
-    for i in range(50):
-        log_likelihood = session.run([hmm.log_likelihood], feed_dict={hmm.seq: xs_batch})
+    for i in range(10000):
+        _, log_likelihood = session.run([hmm.opt_step, hmm.log_likelihood], feed_dict={hmm.seq: xs_batch})
+        print("step {:d}: {:.0f} ll".format(i, log_likelihood))
 
-        print(log_likelihood)
+    # calculate probabilities
+    log_alphas, log_gammas = session.run([hmm.log_alphas, hmm.log_gammas], feed_dict={hmm.seq: xs_batch})
 
-# calculate probabilities
-"""
-alphas, log_evidence, betas, gammas, etas = hmm.forward_backward(xs_batch[0])
+alphas = np.exp(log_alphas[0])
+gammas = np.exp(log_gammas[0])
 
 # plot alphas and gammas
 plot_zs = np.array(zs_batch[0])
@@ -72,4 +73,3 @@ plt.plot(plot_xs, plot_zs, label="z")
 plt.plot(plot_xs, plot_gammas, label="P(z) = 1")
 plt.legend()
 plt.show()
-"""
