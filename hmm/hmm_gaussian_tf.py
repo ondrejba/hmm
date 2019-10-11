@@ -20,7 +20,7 @@ class HMMGaussianTF:
             np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality)), trainable=True, dtype=tf.float32
         )
         self.cov = tf.Variable(
-            np.tile(np.diag([0.1] * self.dimensionality)[np.newaxis, :, :], reps=(self.num_hidden_states, 1, 1)),
+            np.tile(np.diag([1.0] * self.dimensionality)[np.newaxis, :, :], reps=(self.num_hidden_states, 1, 1)),
             trainable=True, dtype=tf.float32
         )
 
@@ -30,7 +30,7 @@ class HMMGaussianTF:
 
         self.seq = tf.placeholder(tf.float32, shape=(None, self.seq_length, self.dimensionality), name="seq_pl")
         self.batch_size = tf.shape(self.seq)[0]
-        self.condition_seq = self.condition(self.seq)
+        self.log_condition_seq = self.condition(self.seq)
 
     def setup(self):
 
@@ -51,61 +51,62 @@ class HMMGaussianTF:
 
         # log likelihood
         log_likelihood = tf.reduce_sum(N1 * tf.log(self.init)) + \
-            tf.reduce_sum(Njk * tf.log(self.A)) + tf.reduce_sum(gammas_batch * tf.log(self.condition_seq))
+            tf.reduce_sum(Njk * tf.log(self.A)) + tf.reduce_sum(gammas_batch * self.log_condition_seq)
 
         return log_likelihood
 
     def forward_backward(self):
 
-        alphas, log_evidence = self.forward()
-        log_alphas = tf.log(alphas)
+        log_alphas, log_evidence = self.forward()
         log_betas = self.backward()
-        betas = tf.exp(log_betas)
 
         log_gammas = log_alphas + log_betas
         log_gammas = log_gammas - tf.reduce_logsumexp(log_gammas, axis=1)[:, tf.newaxis]
         gammas = tf.exp(log_gammas)
 
         log_A = tf.log(self.A)
-        log_px = tf.log(self.condition_seq)
 
-        log_etas = log_A[tf.newaxis, tf.newaxis, :, :] + (log_px[:, 1:, :] + log_betas[:, 1:, :])[:, :, tf.newaxis, :] + log_alphas[:, :-1, :][:, :, :, tf.newaxis]
+        log_etas = log_A[tf.newaxis, tf.newaxis, :, :] + (self.log_condition_seq[:, 1:, :] +
+            log_betas[:, 1:, :])[:, :, tf.newaxis, :] + log_alphas[:, :-1, :][:, :, :, tf.newaxis]
         log_etas = log_etas - tf.reduce_logsumexp(log_etas, axis=(1, 2))[:, tf.newaxis, tf.newaxis]
         etas = tf.exp(log_etas)
 
-        return alphas, log_evidence, betas, gammas, etas
+        return log_alphas, log_evidence, log_betas, gammas, etas
 
     def forward(self):
 
-        alpha_1 = self.condition_seq[:, 0, :] * self.init[tf.newaxis, :]
-        alpha_1, Z_1 = self.normalize(alpha_1)
+        log_init = tf.log(self.init)
+        log_A = tf.log(self.A)
 
-        alphas = [alpha_1]
-        Zs = [Z_1]
+        log_alpha_1 = self.log_condition_seq[:, 0, :] + log_init[tf.newaxis, :]
+        log_alpha_1, log_Z_1 = self.log_normalize(log_alpha_1)
+
+        log_alphas = [log_alpha_1]
+        log_Zs = [log_Z_1]
 
         for t in range(1, self.seq_length):
 
-            alpha_t = self.condition_seq[:, t, :] * tf.matmul(
-                tf.transpose(self.A, perm=[1, 0])[tf.newaxis, :], alphas[-1][:, :, tf.newaxis]
-            )[:, :, 0]
+            log_alpha_t = self.log_condition_seq[:, t, :] + tf.reduce_logsumexp(
+                log_A[tf.newaxis, :, :] + log_alphas[-1][:, :, tf.newaxis], axis=1
+            )
 
-            alpha_t, Zt = self.normalize(alpha_t)
+            log_alpha_t, log_Zt = self.log_normalize(log_alpha_t)
 
-            alphas.append(alpha_t)
-            Zs.append(Zt)
+            log_alphas.append(log_alpha_t)
+            log_Zs.append(log_Zt)
 
-        alphas = tf.stack(alphas, axis=1)
-        Zs = tf.stack(Zs, axis=1)
+        log_alphas = tf.stack(log_alphas, axis=1)
+        log_Zs = tf.stack(log_Zs, axis=1)
 
-        log_evidence = tf.reduce_sum(tf.log(Zs), axis=1)
+        log_evidence = tf.reduce_sum(log_Zs, axis=1)
 
-        return alphas, log_evidence
+        return log_alphas, log_evidence
 
     def backward(self):
 
         log_betas = [tf.zeros((self.batch_size, self.num_hidden_states), dtype=tf.float32)]
         log_A = tf.log(self.A)
-        log_px = tf.log(self.condition_seq)
+        log_px = self.log_condition_seq
 
         for t in reversed(range(0, self.seq_length - 1)):
 
@@ -122,12 +123,12 @@ class HMMGaussianTF:
 
         seq = tf.reshape(seq, shape=(-1, self.dimensionality))
 
-        px = self.dists.prob(seq[:, tf.newaxis, :])
-        px = tf.reshape(px, shape=(-1, self.seq_length, self.num_hidden_states))
+        log_px = self.dists.log_prob(seq[:, tf.newaxis, :])
+        log_px = tf.reshape(log_px, shape=(-1, self.seq_length, self.num_hidden_states))
 
-        return px
+        return log_px
 
-    def normalize(self, alpha):
+    def log_normalize(self, alpha):
 
-        s = tf.reduce_sum(alpha, axis=-1)
-        return alpha / s[..., tf.newaxis], s
+        s = tf.reduce_logsumexp(alpha, axis=-1)
+        return alpha - s[..., tf.newaxis], s

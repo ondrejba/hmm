@@ -1,7 +1,14 @@
+import os
+import logging
 import unittest
+import numpy as np
 import tensorflow as tf
 from ..hmm_gaussian_tf import HMMGaussianTF
 from . import utils
+
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+tf.get_logger().setLevel(logging.ERROR)
 
 
 class TestHMMGaussianTF(unittest.TestCase):
@@ -24,6 +31,14 @@ class TestHMMGaussianTF(unittest.TestCase):
         self.assertEqual(utils.get_tensor_shape(alphas), (None, self.SEQ_LENGTH, self.NUM_HIDDEN_STATES))
         self.assertEqual(utils.get_tensor_shape(log_evidence), (None,))
 
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            alphas, log_evidence = sess.run([alphas, log_evidence], feed_dict={
+                model.seq: np.random.uniform(-1, 1, size=(13, 11, 7))
+            })
+            self.assertTrue(np.all(np.bitwise_not(np.isnan(alphas))))
+            self.assertTrue(np.all(np.bitwise_not(np.isnan(log_evidence))))
+
     def test_backward(self):
 
         model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
@@ -32,6 +47,13 @@ class TestHMMGaussianTF(unittest.TestCase):
 
         log_betas = model.backward()
         self.assertEqual(utils.get_tensor_shape(log_betas), (None, self.SEQ_LENGTH, self.NUM_HIDDEN_STATES))
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            log_betas_val = sess.run(log_betas, feed_dict={
+                model.seq: np.random.uniform(-1, 1, size=(13, 11, 7))
+            })
+            self.assertTrue(np.all(np.bitwise_not(np.isnan(log_betas_val))))
 
     def test_forward_backward(self):
 
@@ -54,4 +76,5 @@ class TestHMMGaussianTF(unittest.TestCase):
         model.setup_variables()
         model.setup_placeholders()
 
-        print(model.likelihood())
+        log_likelihood = model.likelihood()
+        self.assertEqual(len(log_likelihood.shape), 0)

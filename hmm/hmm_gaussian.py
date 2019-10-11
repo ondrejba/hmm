@@ -15,6 +15,7 @@ class HMMGaussian:
         if init is not None and self.mu is not None:
             self.num_hidden_states = len(self.init)
             self.dimensionality = self.mu.shape[1]
+            self.enabled = np.array([True] * self.num_hidden_states)
 
     def learn_fully_obs(self, xs, zs):
 
@@ -22,6 +23,7 @@ class HMMGaussian:
         _, Nk = np.unique(zs, return_counts=True)
         self.num_hidden_states = len(np.unique(zs))
         self.dimensionality = xs.shape[2]
+        self.enabled = np.array([True] * self.num_hidden_states)
 
         Njl = np.zeros((self.num_hidden_states, self.num_hidden_states), dtype=np.float32)
 
@@ -52,7 +54,7 @@ class HMMGaussian:
         self.A = np.random.dirichlet([1.0] * self.num_hidden_states * self.num_hidden_states) \
             .reshape((self.num_hidden_states, self.num_hidden_states))
         self.mu = np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality))
-        self.cov = np.tile(np.diag([0.1] * self.dimensionality)[np.newaxis, :, :],
+        self.cov = np.tile(np.diag([1.0] * self.dimensionality)[np.newaxis, :, :],
                            reps=(self.num_hidden_states, 1, 1))
         self.enabled = np.array([True] * self.num_hidden_states)
 
@@ -101,18 +103,15 @@ class HMMGaussian:
 
         self.cov = mean_xx_bar - self.mu[:, :, np.newaxis] * self.mu[:, np.newaxis, :]
 
-        self.enabled[:] = True
-        for i in range(self.num_hidden_states):
-            if not self.is_valid(self.cov[i]):
-                self.enabled[i] = False
+        self.enabled[log_Nj <= np.log(10.0)] = False
 
         # log likelihood
         log_px = self.condition(xs)
         log_px = np.transpose(log_px, axes=[1, 2, 0])
 
-        log_likelihood = np.sum(np.exp(log_N1) * np.log(self.init)) + \
-                         np.sum(np.exp(log_Njk) * np.log(self.A)[np.newaxis, np.newaxis, :, :]) + \
-                         np.sum(np.exp(log_gammas_batch) * log_px)
+        log_likelihood = np.sum((np.exp(log_N1) * log_init)[self.enabled]) + \
+                         np.sum((np.exp(log_Njk) * log_A)[self.enabled[:, np.newaxis] * self.enabled[np.newaxis, :]]) + \
+                         np.sum((np.exp(log_gammas_batch) * log_px)[:, :, self.enabled])
 
         return log_likelihood
 
@@ -208,4 +207,4 @@ class HMMGaussian:
         return alpha - s, s
 
     def is_valid(self, x):
-        return np.all(np.linalg.eigvals(x) >= 0) and np.linalg.matrix_rank(x) == x.shape[0]
+        return np.all(np.linalg.eigvals(x) >= 0) and np.linalg.matrix_rank(x) == x.shape[0] and not np.all(x == 0)
