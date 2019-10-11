@@ -118,28 +118,6 @@ class HMMGaussianTF:
         log_alphas = tf.concat([init_log_alpha[:, tf.newaxis, :], log_alphas], axis=1)
         log_Zs = tf.concat([init_log_Zs[:, tf.newaxis], log_Zs], axis=1)
 
-        """
-        log_alpha_1 = self.log_condition_seq[:, 0, :] + log_init[tf.newaxis, :]
-        log_alpha_1, log_Z_1 = self.log_normalize(log_alpha_1)
-
-        log_alphas = [log_alpha_1]
-        log_Zs = [log_Z_1]
-
-        for t in range(1, self.seq_length):
-
-            log_alpha_t = self.log_condition_seq[:, t, :] + tf.reduce_logsumexp(
-                log_A[tf.newaxis, :, :] + log_alphas[-1][:, :, tf.newaxis], axis=1
-            )
-
-            log_alpha_t, log_Zt = self.log_normalize(log_alpha_t)
-
-            log_alphas.append(log_alpha_t)
-            log_Zs.append(log_Zt)
-
-        log_alphas = tf.stack(log_alphas, axis=1)
-        log_Zs = tf.stack(log_Zs, axis=1)
-        """
-
         log_evidence = tf.reduce_sum(log_Zs, axis=1)
 
         return log_alphas, log_evidence
