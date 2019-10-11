@@ -121,10 +121,24 @@ class HMMGaussianTF:
 
     def backward(self):
 
-        log_betas = [tf.zeros((self.batch_size, self.num_hidden_states), dtype=tf.float32)]
+        init_betas = tf.zeros((self.batch_size, self.num_hidden_states), dtype=tf.float32)
         log_A = tf.log(self.A)
         log_px = self.log_condition_seq
 
+        def fc(log_beta_t_minus_one, t):
+
+            log_beta_t = tf.reduce_logsumexp(
+                log_A[tf.newaxis, :, :] + (log_px[:, t, :] + log_beta_t_minus_one)[:, tf.newaxis, :], axis=2
+            )
+
+            return log_beta_t
+
+        log_betas = tf.scan(elems=tf.constant(list(range(0, self.seq_length - 1))),
+                            fn=fc, initializer=init_betas, reverse=True)
+        log_betas = tf.transpose(log_betas, perm=[1, 0, 2])
+        log_betas = tf.concat([log_betas, init_betas[:, tf.newaxis, :]], axis=1)
+
+        """
         for t in reversed(range(0, self.seq_length - 1)):
 
             log_beta_t = tf.reduce_logsumexp(
@@ -133,6 +147,7 @@ class HMMGaussianTF:
             log_betas.insert(0, log_beta_t)
 
         log_betas = tf.stack(log_betas, axis=1)
+        """
 
         return log_betas
 
