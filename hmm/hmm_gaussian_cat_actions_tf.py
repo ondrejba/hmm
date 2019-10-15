@@ -5,7 +5,7 @@ import tensorflow as tf
 class HMMGaussianCatActionsTF:
 
     def __init__(self, num_hidden_states, dimensionality, num_actions, seq_length, learning_rate=0.01, full_cov=False,
-                 use_mask=False):
+                 use_mask=False, mu_init_sd=1.0, cov_init_sd=1.0):
 
         self.num_hidden_states = num_hidden_states
         self.dimensionality = dimensionality
@@ -14,6 +14,8 @@ class HMMGaussianCatActionsTF:
         self.learning_rate = learning_rate
         self.full_cov = full_cov
         self.use_mask = use_mask
+        self.mu_init_sd = mu_init_sd
+        self.cov_init_sd = cov_init_sd
 
     def setup_variables(self):
 
@@ -24,7 +26,8 @@ class HMMGaussianCatActionsTF:
         ), trainable=True, dtype=tf.float32)
         self.A = tf.nn.softmax(self.A_v, axis=2)
         self.mu = tf.Variable(
-            np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality)), trainable=True, dtype=tf.float32
+            np.random.normal(0, self.mu_init_sd, size=(self.num_hidden_states, self.dimensionality)),
+            trainable=True, dtype=tf.float32
         )
 
         if self.full_cov:
@@ -38,8 +41,8 @@ class HMMGaussianCatActionsTF:
             )
         else:
             self.cov_v = tf.Variable(
-                np.random.normal(0, 1, size=(self.num_hidden_states, self.dimensionality)), trainable=True,
-                dtype=tf.float32
+                np.random.normal(0, self.cov_init_sd, size=(self.num_hidden_states, self.dimensionality)),
+                trainable=True, dtype=tf.float32
             )
             self.cov = tf.nn.softplus(self.cov_v)
             self.dists = tf.contrib.distributions.MultivariateNormalDiag(
