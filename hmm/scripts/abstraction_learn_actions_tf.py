@@ -4,7 +4,6 @@ import pickle
 import click
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 import tensorflow as tf
 from ..hmm_gaussian_cat_actions_tf import HMMGaussianCatActionsTF
@@ -58,6 +57,8 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
     nn = KNeighborsClassifier(n_neighbors=1)
     nn.fit(seq_utils.flatten(seq), seq_utils.flatten(labels))
 
+    accuracies = []
+
     with tf.Session() as session:
 
         session.run(tf.global_variables_initializer())
@@ -86,7 +87,7 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
             )
             print("step {:d}: {:.0f} ll".format(i, log_likelihood))
 
-            if i % validation_freq == 0:
+            if i % validation_freq == 0 or i == num_steps - 1:
 
                 log_gammas = session.run(hmm.log_gammas, feed_dict={
                     hmm.seq: seq,
@@ -109,6 +110,7 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
                 labels_flat = seq_utils.flatten(labels)
 
                 accuracy = np.mean((predicted_labels_flat == labels_flat)[masks_flat])
+                accuracies.append(accuracy)
 
                 print("accuracy: {:.2f}%".format(accuracy * 100))
 
@@ -120,6 +122,8 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
                     plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:, 1], c=predicted_labels_flat[seq_utils.flatten(masks)])
 
                     plt.show()
+
+    return np.max(accuracies), np.argmax(accuracies) * validation_freq
 
 
 if __name__ == "__main__":
