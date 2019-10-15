@@ -22,8 +22,10 @@ tf.get_logger().setLevel(logging.ERROR)
 @click.option("--validation-freq", default=200, type=click.INT)
 @click.option("--minibatches", default=False, is_flag=True)
 @click.option("--batch-size", default=100, type=click.INT)
+@click.option("--show-graphs", default=False, is_flag=True)
 @click.option("--gpu", default=None, type=click.STRING)
-def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation_freq, minibatches, batch_size, gpu):
+def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation_freq, minibatches, batch_size,
+         show_graphs, gpu):
 
     if gpu is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu
@@ -104,13 +106,14 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
 
                 print("accuracy: {:.2f}%".format(accuracy * 100))
 
-                plt.subplot(2, 1, 1)
-                plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:,  1], c=masked_flat_labels)
+                if show_graphs:
+                    plt.subplot(2, 1, 1)
+                    plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:,  1], c=masked_flat_labels)
 
-                plt.subplot(2, 1, 2)
-                plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:, 1], c=predicted_labels_flat[seq_utils.flatten(masks)])
+                    plt.subplot(2, 1, 2)
+                    plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:, 1], c=predicted_labels_flat[seq_utils.flatten(masks)])
 
-                plt.show()
+                    plt.show()
 
 
 if __name__ == "__main__":
