@@ -78,10 +78,10 @@ class HMMGaussianCatActionsTF:
         else:
             self.float_mask = tf.ones((self.batch_size, self.seq_length), dtype=tf.float32, name="fixed_mask")
 
-    def setup(self):
+    def setup(self, seq=None, actions=None, mask=None):
 
         self.setup_variables()
-        self.setup_placeholders()
+        self.setup_placeholders(seq=seq, actions=actions, mask=mask)
         self.log_likelihood = self.likelihood()
 
         self.opt_step = tf.train.AdamOptimizer(self.learning_rate).minimize(- self.log_likelihood)
