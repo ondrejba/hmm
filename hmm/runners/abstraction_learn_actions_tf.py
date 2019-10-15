@@ -70,6 +70,10 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
             _, log_likelihood = session.run(
                 [hmm.opt_step, hmm.log_likelihood], feed_dict=feed_dict
             )
+
+            if np.isnan(log_likelihood):
+                return np.nan
+
             print("step {:d}: {:.0f} ll".format(i, log_likelihood))
 
             if i % validation_freq == 0 or i == num_steps - 1:
@@ -79,6 +83,9 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
                     hmm.actions: actions,
                     hmm.mask: masks
                 })
+
+                if np.any(np.isnan(log_gammas)):
+                    return np.nan
 
                 gammas = np.exp(log_gammas)
                 assignment = np.argmax(gammas, axis=2)
