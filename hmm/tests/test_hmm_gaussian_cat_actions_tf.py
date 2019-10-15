@@ -134,12 +134,15 @@ class TestHMMGaussianTF(unittest.TestCase):
 
                 log_alphas_ref, log_evidence_ref, log_betas_ref, log_gammas_ref, log_etas_ref = \
                     model_np.forward_backward(seq)
+                log_likelihood_ref = model_np.get_log_likelihood(seq_batch)
 
-                log_alphas, log_evidence, log_betas, log_gammas, log_etas = \
-                    sess.run([model.log_alphas, model.log_evidence, model.log_betas, model.log_gammas, model.log_etas],
-                             feed_dict={
-                                 model.seq: seq_batch, model.actions: np.zeros((13, self.SEQ_LENGTH - 1)) + a_idx
-                             })
+                log_alphas, log_evidence, log_betas, log_gammas, log_etas, log_likelihood = \
+                    sess.run([
+                        model.log_alphas, model.log_evidence, model.log_betas, model.log_gammas, model.log_etas,
+                        model.log_likelihood],
+                        feed_dict={
+                            model.seq: seq_batch, model.actions: np.zeros((13, self.SEQ_LENGTH - 1)) + a_idx
+                        })
                 log_alphas, log_evidence, log_betas, log_gammas, log_etas = \
                     log_alphas[0], log_evidence[0], log_betas[0], log_gammas[0], log_etas[0]
 
@@ -148,3 +151,4 @@ class TestHMMGaussianTF(unittest.TestCase):
                 np.testing.assert_almost_equal(log_betas, log_betas_ref, decimal=2)
                 np.testing.assert_almost_equal(log_gammas, log_gammas_ref, decimal=2)
                 np.testing.assert_almost_equal(log_etas, log_etas_ref, decimal=2)
+                np.testing.assert_almost_equal(log_likelihood, log_likelihood_ref, decimal=2)

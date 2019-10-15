@@ -62,6 +62,24 @@ class HMMGaussian:
 
     def learn_em(self, xs):
 
+        # E step
+        log_N1, log_Nj, log_Njk, log_gammas_batch, _ = self.e_step(xs)
+
+        # M step
+        self.m_step(xs, log_N1, log_Nj, log_Njk, log_gammas_batch)
+
+        # log likelihood
+        log_px = self.condition(xs)
+        log_px = np.transpose(log_px, axes=[1, 2, 0])
+
+        log_likelihood = np.sum((np.exp(log_N1) * np.log(self.init))[self.enabled]) + \
+                         np.sum((np.exp(log_Njk) * np.log(self.A))[self.enabled[:, np.newaxis] * self.enabled[np.newaxis, :]]) + \
+                         np.sum((np.exp(log_gammas_batch) * log_px)[:, :, self.enabled])
+
+        return log_likelihood
+
+    def e_step(self, xs):
+
         batch_size = len(xs)
 
         # E step
@@ -89,7 +107,10 @@ class HMMGaussian:
 
         log_Njk = special.logsumexp(log_etas_batch, axis=(0, 1))
 
-        # M step
+        return log_N1, log_Nj, log_Njk, log_gammas_batch, log_etas_batch
+
+    def m_step(self, xs, log_N1, log_Nj, log_Njk, log_gammas_batch):
+
         log_A = log_Njk - special.logsumexp(log_Njk, axis=1)[:, np.newaxis]
         log_init = log_N1 - special.logsumexp(log_N1)
 
@@ -99,7 +120,7 @@ class HMMGaussian:
         mean_xx_bar = np.zeros((self.num_hidden_states, self.dimensionality, self.dimensionality), dtype=np.float64)
 
         for i in range(self.num_hidden_states):
-            self.mu[i, :] = np.sum(xs * np.exp(log_gammas_batch[:, :, i:i+1] - log_Nj[i]), axis=(0, 1))
+            self.mu[i, :] = np.sum(xs * np.exp(log_gammas_batch[:, :, i:i + 1] - log_Nj[i]), axis=(0, 1))
             mean_xx_bar[i, :, :] = np.sum(np.exp(log_gammas_batch[:, :, i][:, :, np.newaxis, np.newaxis] - log_Nj[i]) *
                                           xs[:, :, :, np.newaxis] * xs[:, :, np.newaxis, :], axis=(0, 1))
 
@@ -107,12 +128,17 @@ class HMMGaussian:
 
         self.enabled[log_Nj <= np.log(10.0)] = False
 
+    def get_log_likelihood(self, xs):
+
+        # e step
+        log_N1, log_Nj, log_Njk, log_gammas_batch, _ = self.e_step(xs)
+
         # log likelihood
         log_px = self.condition(xs)
         log_px = np.transpose(log_px, axes=[1, 2, 0])
 
-        log_likelihood = np.sum((np.exp(log_N1) * log_init)[self.enabled]) + \
-                         np.sum((np.exp(log_Njk) * log_A)[self.enabled[:, np.newaxis] * self.enabled[np.newaxis, :]]) + \
+        log_likelihood = np.sum((np.exp(log_N1) * np.log(self.init))[self.enabled]) + \
+                         np.sum((np.exp(log_Njk) * np.log(self.A))[self.enabled[:, np.newaxis] * self.enabled[np.newaxis, :]]) + \
                          np.sum((np.exp(log_gammas_batch) * log_px)[:, :, self.enabled])
 
         return log_likelihood

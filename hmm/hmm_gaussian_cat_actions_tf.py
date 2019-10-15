@@ -4,7 +4,8 @@ import tensorflow as tf
 
 class HMMGaussianCatActionsTF:
 
-    def __init__(self, num_hidden_states, dimensionality, num_actions, seq_length, learning_rate=0.01, full_cov=False):
+    def __init__(self, num_hidden_states, dimensionality, num_actions, seq_length, learning_rate=0.01, full_cov=False,
+                 use_mask=False):
 
         self.num_hidden_states = num_hidden_states
         self.dimensionality = dimensionality
@@ -12,6 +13,7 @@ class HMMGaussianCatActionsTF:
         self.seq_length = seq_length
         self.learning_rate = learning_rate
         self.full_cov = full_cov
+        self.use_mask = use_mask
 
     def setup_variables(self):
 
@@ -55,6 +57,12 @@ class HMMGaussianCatActionsTF:
         self.log_condition_seq = self.condition(self.seq)
         self.gather_log_A = tf.gather(self.log_A, self.actions)
 
+        if self.use_mask:
+            self.mask = tf.placeholder(tf.bool, shape=(None, self.seq_length), name="mask_pl")
+            self.float_mask = tf.cast(self.mask, tf.float32)
+        else:
+            self.float_mask = tf.ones((self.batch_size, self.seq_length), dtype=tf.float32, name="fixed_mask")
+
     def setup(self):
 
         self.setup_variables()
@@ -75,8 +83,12 @@ class HMMGaussianCatActionsTF:
         # log likelihood
         log_likelihood = \
             tf.reduce_sum(tf.exp(log_N1) * tf.log(self.init)) + \
-            tf.reduce_sum(tf.exp(self.log_etas) * self.gather_log_A) + \
-            tf.reduce_sum(tf.exp(self.log_gammas) * self.log_condition_seq)
+            tf.reduce_sum(
+                (tf.exp(self.log_etas) * self.gather_log_A) * self.float_mask[:, 1:, tf.newaxis, tf.newaxis]
+            ) + \
+            tf.reduce_sum(
+                (tf.exp(self.log_gammas) * self.log_condition_seq) * self.float_mask[:, :, tf.newaxis]
+            )
 
         return log_likelihood
 
