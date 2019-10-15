@@ -10,9 +10,13 @@ cov_sds = [0.1, 1.0, 5.0]
 runs = 10
 
 results = dict()
+results_path = "./results/search_abstraction_batch.pickle"
 
 if not os.path.isdir("./results"):
     os.makedirs("./results")
+
+if os.path.isfile(results_path):
+    results = pickle.load(results_path)
 
 for i, mu_sd in enumerate(mu_sds):
     for j, cov_sd in enumerate(cov_sds):
@@ -32,5 +36,5 @@ for i, mu_sd in enumerate(mu_sds):
 
                     results[mu_sd, cov_sd, lr, dim, run_idx] = best_accuracy
 
-                    with open("./results/search_abstraction_batch.pickle", "wb") as file:
+                    with open(results_path, "wb") as file:
                         pickle.dump(results, file)
