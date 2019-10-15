@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import tensorflow as tf
 from ..hmm_gaussian import HMMGaussian
-from ..hmm_gaussian_tf import HMMGaussianTF
+from ..hmm_gaussian_cat_actions_tf import HMMGaussianCatActionsTF
 from . import utils
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -17,6 +17,7 @@ class TestHMMGaussianTF(unittest.TestCase):
     NUM_HIDDEN_STATES = 3
     DIMENSIONALITY = 7
     SEQ_LENGTH = 11
+    NUM_ACTIONS = 5
 
     def tearDown(self) -> None:
         tf.reset_default_graph()
@@ -32,7 +33,7 @@ class TestHMMGaussianTF(unittest.TestCase):
 
     def test_forward(self):
 
-        model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
+        model = HMMGaussianCatActionsTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.NUM_ACTIONS, self.SEQ_LENGTH)
         model.setup_variables()
         model.setup_placeholders()
 
@@ -44,14 +45,15 @@ class TestHMMGaussianTF(unittest.TestCase):
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             alphas, log_evidence = sess.run([alphas, log_evidence], feed_dict={
-                model.seq: np.random.uniform(-1, 1, size=(13, 11, 7))
+                model.seq: np.random.uniform(-1, 1, size=(13, self.SEQ_LENGTH, self.DIMENSIONALITY)),
+                model.actions: np.random.randint(0, self.NUM_ACTIONS, size=(13, self.SEQ_LENGTH - 1))
             })
             self.assertTrue(np.all(np.bitwise_not(np.isnan(alphas))))
             self.assertTrue(np.all(np.bitwise_not(np.isnan(log_evidence))))
 
     def test_backward(self):
 
-        model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
+        model = HMMGaussianCatActionsTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.NUM_ACTIONS, self.SEQ_LENGTH)
         model.setup_variables()
         model.setup_placeholders()
 
@@ -61,13 +63,14 @@ class TestHMMGaussianTF(unittest.TestCase):
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             log_betas_val = sess.run(log_betas, feed_dict={
-                model.seq: np.random.uniform(-1, 1, size=(13, 11, 7))
+                model.seq: np.random.uniform(-1, 1, size=(13, self.SEQ_LENGTH, self.DIMENSIONALITY)),
+                model.actions: np.random.randint(0, self.NUM_ACTIONS, size=(13, self.SEQ_LENGTH - 1))
             })
             self.assertTrue(np.all(np.bitwise_not(np.isnan(log_betas_val))))
 
     def test_forward_backward(self):
 
-        model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
+        model = HMMGaussianCatActionsTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.NUM_ACTIONS, self.SEQ_LENGTH)
         model.setup_variables()
         model.setup_placeholders()
 
@@ -82,7 +85,7 @@ class TestHMMGaussianTF(unittest.TestCase):
 
     def test_likelihood(self):
 
-        model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
+        model = HMMGaussianCatActionsTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.NUM_ACTIONS, self.SEQ_LENGTH)
         model.setup_variables()
         model.setup_placeholders()
 
@@ -94,7 +97,7 @@ class TestHMMGaussianTF(unittest.TestCase):
         seq_batch = np.random.uniform(-1, 1, size=(13, self.SEQ_LENGTH, self.DIMENSIONALITY))
         seq = seq_batch[0]
 
-        model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
+        model = HMMGaussianCatActionsTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.NUM_ACTIONS, self.SEQ_LENGTH)
         model.setup()
 
         with tf.Session() as sess:
@@ -103,7 +106,7 @@ class TestHMMGaussianTF(unittest.TestCase):
             A, init, mu, cov = sess.run([model.A, model.init, model.mu, model.cov])
             full_cov = self.diag_batch(cov)
 
-            model_np = HMMGaussian(A, init, mu, full_cov)
+            model_np = HMMGaussian(A[0], init, mu, full_cov)
 
             log_px_ref = model_np.condition(seq)
             log_px_ref = np.transpose(log_px_ref)
@@ -116,28 +119,32 @@ class TestHMMGaussianTF(unittest.TestCase):
         seq_batch = np.random.uniform(-1, 1, size=(13, self.SEQ_LENGTH, self.DIMENSIONALITY))
         seq = seq_batch[0]
 
-        model = HMMGaussianTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.SEQ_LENGTH)
+        model = HMMGaussianCatActionsTF(self.NUM_HIDDEN_STATES, self.DIMENSIONALITY, self.NUM_ACTIONS, self.SEQ_LENGTH)
         model.setup()
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
 
-            A, init, mu, cov = sess.run([model.A, model.init, model.mu, model.cov])
-            full_cov = self.diag_batch(cov)
+            for a_idx in range(self.NUM_ACTIONS):
 
-            model_np = HMMGaussian(A, init, mu, full_cov)
+                A, init, mu, cov = sess.run([model.A, model.init, model.mu, model.cov])
+                full_cov = self.diag_batch(cov)
 
-            log_alphas_ref, log_evidence_ref, log_betas_ref, log_gammas_ref, log_etas_ref = \
-                model_np.forward_backward(seq)
+                model_np = HMMGaussian(A[a_idx], init, mu, full_cov)
 
-            log_alphas, log_evidence, log_betas, log_gammas, log_etas = \
-                sess.run([model.log_alphas, model.log_evidence, model.log_betas, model.log_gammas, model.log_etas],
-                         feed_dict={model.seq: seq_batch})
-            log_alphas, log_evidence, log_betas, log_gammas, log_etas = \
-                log_alphas[0], log_evidence[0], log_betas[0], log_gammas[0], log_etas[0]
+                log_alphas_ref, log_evidence_ref, log_betas_ref, log_gammas_ref, log_etas_ref = \
+                    model_np.forward_backward(seq)
 
-            np.testing.assert_almost_equal(log_alphas, log_alphas_ref, decimal=2)
-            np.testing.assert_almost_equal(log_evidence, log_evidence_ref, decimal=2)
-            np.testing.assert_almost_equal(log_betas, log_betas_ref, decimal=2)
-            np.testing.assert_almost_equal(log_gammas, log_gammas_ref, decimal=2)
-            np.testing.assert_almost_equal(log_etas, log_etas_ref, decimal=2)
+                log_alphas, log_evidence, log_betas, log_gammas, log_etas = \
+                    sess.run([model.log_alphas, model.log_evidence, model.log_betas, model.log_gammas, model.log_etas],
+                             feed_dict={
+                                 model.seq: seq_batch, model.actions: np.zeros((13, self.SEQ_LENGTH - 1)) + a_idx
+                             })
+                log_alphas, log_evidence, log_betas, log_gammas, log_etas = \
+                    log_alphas[0], log_evidence[0], log_betas[0], log_gammas[0], log_etas[0]
+
+                np.testing.assert_almost_equal(log_alphas, log_alphas_ref, decimal=2)
+                np.testing.assert_almost_equal(log_evidence, log_evidence_ref, decimal=2)
+                np.testing.assert_almost_equal(log_betas, log_betas_ref, decimal=2)
+                np.testing.assert_almost_equal(log_gammas, log_gammas_ref, decimal=2)
+                np.testing.assert_almost_equal(log_etas, log_etas_ref, decimal=2)

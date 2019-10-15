@@ -7,6 +7,8 @@ class HMMGaussian:
 
     def __init__(self, A=None, init=None, mu=None, cov=None):
 
+        assert len(A.shape) == 2 and A.shape[0] == A.shape[1]
+
         self.A = A
         self.init = init
         self.mu = mu
