@@ -52,16 +52,28 @@ class HMMGaussianCatActionsTF:
         self.log_init = tf.log(self.init)
         self.log_A = tf.log(self.A)
 
-    def setup_placeholders(self):
+    def setup_placeholders(self, seq=None, actions=None, mask=None):
 
-        self.seq = tf.placeholder(tf.float32, shape=(None, self.seq_length, self.dimensionality), name="seq_pl")
-        self.actions = tf.placeholder(tf.int32, shape=(None, self.seq_length - 1), name="actions_pl")
+        if seq is None:
+            self.seq = tf.placeholder(tf.float32, shape=(None, self.seq_length, self.dimensionality), name="seq_pl")
+        else:
+            self.seq = seq
+
+        if actions is None:
+            self.actions = tf.placeholder(tf.int32, shape=(None, self.seq_length - 1), name="actions_pl")
+        else:
+            self.actions = actions
+
         self.batch_size = tf.shape(self.seq)[0]
         self.log_condition_seq = self.condition(self.seq)
         self.gather_log_A = tf.gather(self.log_A, self.actions)
 
         if self.use_mask:
-            self.mask = tf.placeholder(tf.bool, shape=(None, self.seq_length), name="mask_pl")
+            if mask is None:
+                self.mask = tf.placeholder(tf.bool, shape=(None, self.seq_length), name="mask_pl")
+            else:
+                self.mask = mask
+
             self.float_mask = tf.cast(self.mask, tf.float32)
         else:
             self.float_mask = tf.ones((self.batch_size, self.seq_length), dtype=tf.float32, name="fixed_mask")
