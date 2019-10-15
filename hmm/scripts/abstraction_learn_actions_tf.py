@@ -81,12 +81,18 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
                     hmm.mask: masks
                 }
 
-            _, log_likelihood, log_gammas = session.run(
-                [hmm.opt_step, hmm.log_likelihood, hmm.log_gammas], feed_dict=feed_dict
+            _, log_likelihood = session.run(
+                [hmm.opt_step, hmm.log_likelihood], feed_dict=feed_dict
             )
             print("step {:d}: {:.0f} ll".format(i, log_likelihood))
 
             if i % validation_freq == 0:
+
+                log_gammas = session.run(hmm.log_gammas, feed_dict={
+                    hmm.seq: seq,
+                    hmm.actions: actions,
+                    hmm.mask: masks
+                })
 
                 gammas = np.exp(log_gammas)
                 assignment = np.argmax(gammas, axis=2)
