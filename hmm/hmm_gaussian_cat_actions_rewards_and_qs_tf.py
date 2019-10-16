@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 
-class HMMGaussianCatActionsTF:
+class HMMGaussianCatActionsRewardsAndQsTF:
 
     def __init__(self, num_hidden_states, dimensionality, num_actions, seq_length, learning_rate=0.01, full_cov=False,
                  use_mask=False, mu_init_sd=1.0, cov_init_sd=1.0):
@@ -29,6 +29,8 @@ class HMMGaussianCatActionsTF:
             np.random.normal(0, self.mu_init_sd, size=(self.num_hidden_states, self.dimensionality)),
             trainable=True, dtype=tf.float32
         )
+        self.R = tf.Variable(np.random.normal(0, 1, size=(self.num_actions, self.num_hidden_states)))
+        self.Q = tf.Variable(np.random.normal(0, 1, size=(self.num_actions, self.num_hidden_states)))
 
         if self.full_cov:
             self.cov_v = tf.Variable(
@@ -52,7 +54,7 @@ class HMMGaussianCatActionsTF:
         self.log_init = tf.log(self.init)
         self.log_A = tf.log(self.A)
 
-    def setup_placeholders(self, seq=None, actions=None, mask=None):
+    def setup_placeholders(self, seq=None, actions=None, rewards=None, qs=None, mask=None):
 
         if seq is None:
             self.seq = tf.placeholder(tf.float32, shape=(None, self.seq_length, self.dimensionality), name="seq_pl")
@@ -64,9 +66,20 @@ class HMMGaussianCatActionsTF:
         else:
             self.actions = actions
 
+        if rewards is None:
+            self.rewards = tf.placeholder(tf.float32, shape=(None, self.seq_length - 1), name="rewards_pl")
+        else:
+            self.rewards = rewards
+
+        if qs is None:
+            self.qs = tf.placeholder(tf.float32, shape=(None, self.seq_length - 1, self.num_actions), name="qs_pl")
+        else:
+            self.qs = qs
+
         self.batch_size = tf.shape(self.seq)[0]
         self.log_condition_seq = self.condition(self.seq)
         self.gather_log_A = tf.gather(self.log_A, self.actions)
+        self.gather_R = tf.gather(self.R, self.actions)
 
         if self.use_mask:
             if mask is None:
@@ -78,10 +91,10 @@ class HMMGaussianCatActionsTF:
         else:
             self.float_mask = tf.ones((self.batch_size, self.seq_length), dtype=tf.float32, name="fixed_mask")
 
-    def setup(self, seq=None, actions=None, mask=None):
+    def setup(self, seq=None, actions=None, rewards=None, qs=None, mask=None):
 
         self.setup_variables()
-        self.setup_placeholders(seq=seq, actions=actions, mask=mask)
+        self.setup_placeholders(seq=seq, actions=actions, rewards=rewards, qs=qs, mask=mask)
         self.log_likelihood = self.likelihood()
 
         self.opt_step = tf.train.AdamOptimizer(self.learning_rate).minimize(- self.log_likelihood)
@@ -106,6 +119,8 @@ class HMMGaussianCatActionsTF:
             )
 
         return log_likelihood
+
+    # TODO: setup reward and q losses
 
     def forward_backward(self):
 

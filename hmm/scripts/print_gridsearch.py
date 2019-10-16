@@ -32,7 +32,8 @@ def main(path):
                 accuracies.append(results[tmp_key])
                 total += 1
 
-        print("{}: {:.2f}% +- {:.2f}".format(setting, np.mean(accuracies) * 100, np.std(accuracies) * 100))
+        if len(accuracies) > 0:
+            print("{}: {:.2f}% +- {:.2f}".format(setting, np.mean(accuracies) * 100, np.std(accuracies) * 100))
 
     print("finished {:d} runs".format(total))
 
