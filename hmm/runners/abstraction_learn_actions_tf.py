@@ -108,10 +108,20 @@ def main(dimensionality, num_hidden_states, learning_rate, num_steps, validation
 
                 if show_graphs:
                     plt.subplot(2, 1, 1)
+                    plt.title("coarsest abstraction")
                     plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:,  1], c=masked_flat_labels)
+                    plt.xticks([])
+                    plt.yticks([])
+                    plt.xlabel("PCA1")
+                    plt.ylabel("PCA2")
 
                     plt.subplot(2, 1, 2)
+                    plt.title("predicted abstraction")
                     plt.scatter(masked_flat_seq[:, 0], masked_flat_seq[:, 1], c=predicted_labels_flat[seq_utils.flatten(masks)])
+                    plt.xticks([])
+                    plt.yticks([])
+                    plt.xlabel("PCA1")
+                    plt.ylabel("PCA2")
 
                     plt.show()
 

@@ -1,8 +1,12 @@
 import os
+import logging
 import pickle
 import numpy as np
 import tensorflow as tf
 from ..runners import abstraction_learn_actions_tf
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+tf.get_logger().setLevel(logging.ERROR)
 
 lrs = [1.0, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
 dims = [2, 3, 4, 8, 16, 32]
